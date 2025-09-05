@@ -11,6 +11,7 @@ export default function Calendar({ onSelectSlot, therapistId, therapistName }) {
   const [showDialog, setShowDialog] = useState(false);
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestError, setRequestError] = useState(null);
+  const [bookings, setBookings] = useState('');
   const user = pb.authStore.model;
 
   // Fetch available slots when therapist or date changes
@@ -40,6 +41,20 @@ export default function Calendar({ onSelectSlot, therapistId, therapistName }) {
       fetchAvailableSlots();
     }
   }, [therapistId, dateNow]);
+
+useEffect(() => {
+  const fetchBookings = async () => {
+    const bookingRequests = await pb.collection('booking_request').getFullList({
+      filter: `therapist_id = "${pb.authStore.model.id}"`,
+      expand: 'userprofile_id'
+    });
+
+    setBookings(bookingRequests);
+  };
+
+  fetchBookings();
+}, []);
+
 
   // Refresh slots after dialog closes (booking request sent)
   useEffect(() => {
@@ -110,6 +125,7 @@ export default function Calendar({ onSelectSlot, therapistId, therapistName }) {
     setRequestLoading(true);
     setRequestError(null);
     try {
+      const userProfile = await pb.collection('user_profile').getFirstListItem(`userId="${user.id}"`);
       await pb.collection('booking_request').create({
         therapist_id: therapistId,
         therapist_name: therapistName,
@@ -119,6 +135,7 @@ export default function Calendar({ onSelectSlot, therapistId, therapistName }) {
         day: selectedSlot.day.dayName,
         time: selectedSlot.time,
         status: 'pending',
+        userprofile_id:userProfile?.id,
       });
       setShowDialog(false);
       alert('Booking Request Sent!');
@@ -150,7 +167,7 @@ export default function Calendar({ onSelectSlot, therapistId, therapistName }) {
       const slotBookings = availableSlots.filter(
         (slot) => {
           // Handle different date formats - extract just the date part
-          const slotDateStr = new Date(slot.date).toISOString().slice(0, 10); // Extract YYYY-MM-DD from datetime
+          const slotDateStr = new Date(slot.date).toISOString().slice(0, 10); 
           console.log("selected date", dateStr);
           console.log("slots date", slotDateStr)
           return slotDateStr === dateStr && slot.time === time;
@@ -158,25 +175,7 @@ export default function Calendar({ onSelectSlot, therapistId, therapistName }) {
       );
       console.log(time)
 
-      // Debug logging for 11:00 AM slot
-      if (time === '11:00 AM') {
-        console.log('=== DEBUG 11:00 AM SLOT ===');
-        console.log('Date:', dateStr);
-        console.log('Time:', time);
-        console.log('All available slots:', availableSlots);
-        console.log('Slot bookings for this time:', slotBookings);
-        console.log('Slot bookings length:', slotBookings.length);
-        slotBookings.forEach((booking, idx) => {
-          console.log(`Booking ${idx}:`, {
-            id: booking.id,
-            date: booking.date,
-            time: booking.time,
-            status: booking.status,
-            user_name: booking.user_name,
-            therapist_name: booking.therapist_name
-          });
-        });
-      }
+      
 
       let isAvailable = true;
       let isCompleted = false;

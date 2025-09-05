@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBuilding, faUser, faLock, faArrowLeft, faUserPlus, faSave, faEdit, faGraduationCap, faBriefcase, faTags, faPlus, faTimes } from '@fortawesome/free-solid-svg-icons';
-import ManageAvailability from '@/app/manage_availability/page';
 import { faCalendarAlt, faCheck, faTimesCircle, faHourglassHalf, faClipboardCheck } from '@fortawesome/free-solid-svg-icons';
 
 export default function TherapistViewPage() {
@@ -25,6 +24,7 @@ export default function TherapistViewPage() {
   const [dateFilter, setDateFilter] = useState('all');
   const [customDate, setCustomDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [status, setStatus] = useState('');
 
   console.log("Therapist profile id ", therapistId);
 
@@ -129,6 +129,7 @@ export default function TherapistViewPage() {
         setExperience(res[0].experience || '');
         setQualification(res[0].qualification || '');
         setUserName(res[0].username || '');
+        setStatus(res[0].status || '')
         setIsEditing(false);
 
         if (res[0].specializations && Array.isArray(res[0].specializations)) {
@@ -176,12 +177,12 @@ export default function TherapistViewPage() {
       if (statusStr) filter += `&&(${statusStr})`;
       if (dateStr) filter += `&&${dateStr}`;
 
-      // Only expand user_id
       const requests = await pb.collection('booking_request').getList(1, 50, {
         filter,
         sort: '-created',
-        expand: 'user_id'
+        expand: 'user_id,userprofile_id',
       });
+
 
       console.log("Request IN tooo", requests)
 
@@ -190,30 +191,34 @@ export default function TherapistViewPage() {
         requests.items.map(async (req) => {
           let username = 'User';
           let userProfileId = null;
-          if (req.expand?.user_id?.id) {
-            try {
-              // Find user_profile by user_id
-              const profiles = await pb.collection('user_profile').getFullList({
-                filter: `userId="${req.expand.user_id.id}"`
-              });
-              console.log("Finding user profile", profiles)
-              if (profiles.length > 0) {
-                username = profiles[0].username || 'User';
-                userProfileId = profiles[0].id;
-                console.log("Found user profile ID:", userProfileId);
-                console.log("Booking request:", req);
-                console.log("User ID to look up:", req.expand?.user_id?.id);
-                console.log("Found profile ID:", userProfileId);
-              } else {
-                console.error("User is not Found in user_profiles it's not created yet please create user profile and login using that first");
-              }
+          // if (req.expand?.user_id?.id) {
+          //   try {
+          //     // Find user_profile by user_id
+          //     const profiles = await pb.collection('user_profile').getFullList({
+          //       filter: `userId="${req.expand.user_id.id}"`
+          //     });
+          //     console.log("Finding user profile", profiles)
+          //     if (profiles.length > 0) {
+          //       username = profiles[0].username || 'User';
+          //       userProfileId = profiles[0].id;
+          //       console.log("Found user profile ID:", userProfileId);
+          //       console.log("Booking request:", req);
+          //       console.log("User ID to look up:", req.expand?.user_id?.id);
+          //       console.log("Found profile ID:", userProfileId);
+          //     } else {
+          //       console.error("User is not Found in user_profiles it's not created yet please create user profile and login using that first");
+          //     }
 
-            } catch (err) {
-              // fallback
-              console.error("User id is there but it's supported", err)
-            }
-          }
-          return { ...req, userProfileUsername: username, userProfileId };
+          //   } catch (err) {
+          //     // fallback
+          //     console.error("User id is there but it's supported", err)
+          //   }
+          //}
+          return {
+            ...req,
+            userProfileUsername: req.expand?.userprofile_id?.username || 'User',
+            userProfileId: req.expand?.userprofile_id?.id || null,
+          };
         })
       );
       console.log("Request With Profile", requestsWithProfile)
@@ -254,7 +259,8 @@ export default function TherapistViewPage() {
           qualification: qualification,
           specializations: filteredSpecializations,
           therapistId: therapistId,
-          username: username
+          username: username,
+
         });
         setProfileId(record.id);
         setProfileExists(true);
@@ -333,6 +339,25 @@ export default function TherapistViewPage() {
     );
   }
 
+  const handleProfileRequest = async () => {
+    try {
+      if (!profileId) {
+        alert("Create Profile before sending request");
+        return;
+      }
+
+      await pb.collection('therapist_profile').update(profileId, {
+        status: 'pending'
+      });
+      alert("Request sent to admin for approval.");
+      setStatus('pending');
+
+    } catch (error) {
+      console.error(error);
+      alert("failed to send request");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white">
       <div className="max-w-4xl mx-auto p-6">
@@ -348,6 +373,14 @@ export default function TherapistViewPage() {
             <div>
               <h1 className="text-3xl font-bold">
                 {profileExists ? 'Your Therapist Profile' : 'Create Your Therapist Profile'}
+                {status === 'accepted' && (
+                  <span className="bg-green-100 text-green-700 p-1.5 w-25 rounded-full text-sm flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-4  text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Verified
+                  </span>
+                )}
               </h1>
               <p className="mt-2 text-purple-100">
                 {profileExists
@@ -542,6 +575,48 @@ export default function TherapistViewPage() {
                 </div>
               </div>
 
+
+              <div className="mt-4">
+                {/* Accepted → No button or message */}
+                {status === 'accepted' ? null : status === 'rejected' ? (
+                  // Rejected → Show message only
+                  <p className="text-red-600 font-semibold mt-2">
+                    Your profile has been rejected. Please review and update your details before resubmitting.
+                  </p>
+                ) : (
+                  // Pending or Default → Show button & status
+                  <>
+                    <button
+                      className={`px-4 py-2 rounded-xl font-semibold transition ${status === 'pending'
+                          ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                          : 'bg-yellow-200 hover:bg-yellow-300'
+                        }`}
+                      onClick={handleProfileRequest}
+                      disabled={status === 'pending'}
+                    >
+                      {status === 'pending' ? 'Request Sent' : 'Send Request'}
+                    </button>
+
+                    <p className="text-sm mt-2">
+                      Current Status:
+                      <span
+                        className={`ml-2 font-bold ${status === 'pending'
+                            ? 'text-yellow-600'
+                            : 'text-gray-500'
+                          }`}
+                      >
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </span>
+                    </p>
+                  </>
+                )}
+              </div>
+
+
+
+
+
+
               {/* Filters Section with Dropdowns */}
               <div className="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -611,17 +686,15 @@ export default function TherapistViewPage() {
                               {request.user_name || 'User'}
                             </h3>
                             {/* Add link to user profile */}
-                            {request.userProfileId ? (
+
+                            {request.userProfileId && (
                               <Link
                                 href={`/viewuser_profile/${request.userProfileId}`}
                                 className="text-purple-600 underline text-sm hover:text-purple-900"
                               >
                                 View User Profile
                               </Link>
-                            ) : (
-                              <span className="text-gray-400 text-sm">No profile</span>
                             )}
-
 
 
                             <p className="text-gray-600 mt-1">
