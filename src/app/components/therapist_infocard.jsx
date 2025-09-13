@@ -9,7 +9,7 @@ import {
   faClock,
   faQuoteLeft,
   faGraduationCap,
-  faArrowRight
+  faArrowRight, faLocationDot, faPhone
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function TherapistInfoCard() {
@@ -99,6 +99,22 @@ export default function TherapistInfoCard() {
                     <p className="text-xs text-gray-500">Professional Approach</p>
                   </div>
                   <p className="text-gray-700 text-sm line-clamp-3">{therapist.bio || 'No bio available'}</p>
+                </div>
+
+                <div className="mb-4">
+                  <div className="flex items-center mb-2">
+                    <FontAwesomeIcon icon={faLocationDot} className="text-blue-400 text-sm mr-1" />
+                    <p className="text-xs text-gray-500">Location</p>
+                  </div>
+                  <p className="text-gray-700 text-sm line-clamp-3">{therapist.location || 'No location available'}</p>
+                </div>
+
+                <div className="mb-4">
+                  <div className="flex items-center mb-2">
+                    <FontAwesomeIcon icon={faPhone} className="text-blue-400 text-sm mr-1" />
+                    <p className="text-xs text-gray-500">Conatct Info</p>
+                  </div>
+                  <p className="text-gray-700 text-sm line-clamp-3">{therapist.contact || 'No contact available'}</p>
                 </div>
 
                 {therapist.specializations && therapist.specializations.length > 0 && (
