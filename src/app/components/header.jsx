@@ -45,7 +45,7 @@ export default function Header() {
       try {
         const therapistRecord = await pb
           .collection('therapist_profile')
-          .getFirstListItem(`userId="${userId}"`);
+          .getFirstListItem(`therapistId="${userId}"`);
         router.push(`/therapist_profile/${therapistRecord.id}`);
       } catch (error) {
         router.push(`/therapist_profile/${userId}`);
@@ -65,11 +65,12 @@ export default function Header() {
     try {
       // Search therapists by username OR location
       const results = await pb.collection("therapist_profile").getList(1, 20, {
-        filter: `username ~ "${searchQuery}" || location ~ "${searchQuery}"`,
-      });
+  filter: `(username ~ "${searchQuery}" || location ~ "${searchQuery}") && status = "accepted"`,
+});
+
 
       // Send results to a search page
-      router.push(`/therapistinfopage?search=${encodeURIComponent(searchQuery)}`);
+router.push(`/therapistinfopage?search=${encodeURIComponent(searchQuery)}`);
     } catch (error) {
       console.error("Search failed:", error);
     }
@@ -97,8 +98,9 @@ export default function Header() {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8 text-md font-medium text-gray-700">
+          <nav className="hidden md:flex items-center space-x-8 text-lg font-semibold text-gray-700">
             <Link href="/" className="hover:text-blue-600 transition">Home</Link>
+            <Link href="/about_us" className="hover:text-blue-600 transition">About Us</Link>
             <Link href="/therapistinfopage" className="hover:text-blue-600 transition">Therapists</Link>
 
             {/* Services Dropdown */}

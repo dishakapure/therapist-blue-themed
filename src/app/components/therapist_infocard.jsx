@@ -11,23 +11,37 @@ import {
   faGraduationCap,
   faArrowRight, faLocationDot, faPhone
 } from '@fortawesome/free-solid-svg-icons';
+import { useSearchParams } from 'next/navigation';
 
-export default function TherapistInfoCard() {
+export default function TherapistInfoCard({limit}) {
   const [therapists, setTherapists] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-
+  const searchParams =  useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
-        // Fetch therapist profiles AND expand the linked user
-        const data = await pb.collection('therapist_profile').getFullList({
-          filter: 'status="accepted"',
-          expand: 'therapistId',
-        });
+        let filter = 'status="accepted"';
+        if(searchQuery) {
+          filter = `(username ~ "${searchQuery}" || location ~ "${searchQuery}") && ${filter}`;
+        }
 
-        setTherapists(data);
+        const options = {
+          filter,
+          expand: 'therapistId',
+          sort: '-created',
+        };
+
+        if (limit) {
+          options['perPage'] = limit;  // Limit number of therapists
+          options['sort'] = '-created'; // Sort by newest first
+        }
+
+        const data = await pb.collection('therapist_profile').getList(1, limit || 50, options);
+        setTherapists(data.items || data);  // getList returns an object with `.items`, while getFullList returns an array
       } catch (error) {
         console.error("Error fetching therapists:", error);
       } finally {
@@ -36,7 +50,8 @@ export default function TherapistInfoCard() {
     };
 
     fetchData();
-  }, []);
+  }, [limit, searchQuery]);
+
 
   return (
     <div className="container mx-auto px-4 py-8">
